@@ -1,0 +1,274 @@
+BlockIdentification:
+  type: object
+  properties:
+    uid:
+      type: string
+    displayText:
+      type: string
+      readOnly: true
+LineIdentification:
+  type: object
+  properties:
+    uid:
+      type: string
+    displayText:
+      type: string
+      readOnly: true
+TripIdentification:
+  type: object
+  properties:
+    displayText:
+      type: string
+      readOnly: true
+    numberInBlock:
+      type: integer
+      format: int32
+      readOnly: true
+    uid:
+      type: string
+RouteIdentification:
+  type: object
+  properties:
+    uid:
+      type: string
+    displayText:
+      type: string
+      readOnly: true
+VehicleIdentification:
+  type: object
+  properties:
+    uid:
+      type: string
+    displayText:
+      type: string
+      readOnly: true
+GpsPosition:
+  type: object
+  description: A GPS position. Longitude and latitude are given in WGS 84 format.
+  properties:
+    longitude:
+      type: number
+      format: double
+    latitude:
+      type: number
+      format: double
+Position:
+  type: object
+  properties:
+    displayText:
+      type: string
+      readOnly: true
+    stopNames:
+      type: array
+      maxItems: 2
+      items:
+        type: string
+TripItineraryNodeIdentification:
+  type: object
+  properties:
+    posInRoute:
+      type: integer
+      format: int32
+    netPoint:
+      $ref: '#/NetPointIdentification'
+NetPointIdentification:
+  type: object
+  properties:
+    type:
+      $ref: '#/NetPointType'
+    uid:
+      type: string
+    displayText:
+      type: string
+      readOnly: true
+NetPointType:
+  type: string
+  enum:
+  - STOP_POINT
+  - DEPOT_POINT
+  - BEACON
+  - LINK_POINT
+  readOnly: true
+NetPoint:
+  type: object
+  description: The properties 'identification' and 'gpsPosition' are required.
+  properties:
+    identification:
+      $ref: '#/NetPointIdentification'
+    stop:
+      readOnly: true
+      allOf:
+      - $ref: '#/StopIdentification'
+    displayText:
+      type: string
+      readOnly: true
+    gpsPosition:
+      readOnly: true
+      allOf:
+      - $ref: '#/GpsPosition'
+StopIdentification:
+  type: object
+  properties:
+    uid:
+      type: string
+    displayText:
+      type: string
+      readOnly: true
+Destination:
+  type: object
+  properties:
+    lastStopName:
+      type: string
+Deviation:
+  type: object
+  properties:
+    value:
+      type: number
+      format: float
+    prefix:
+      $ref: '#/DeviationPrefix'
+    semantics:
+      $ref: '#/DeviationSemantics'
+    obsolescenceStage:
+      $ref: '#/DeviationObsolescenceStage'
+DeviationPrefix:
+  type: string
+  nullable: true
+  enum:
+  - "*"
+  - "+"
+  - "-"
+  - "%"
+  - "#"
+  - "="
+DeviationSemantics:
+  type: string
+  readOnly: true
+  enum:
+  - ON_TIME
+  - SUBOPTIMAL
+  - PROBLEMATIC
+  - NOT_AVAILABLE
+  - WAITING
+DeviationObsolescenceStage:
+  type: string
+  readOnly: true
+  enum:
+  - FRESH
+  - OLD
+  - ANCIENT
+DriverIdentification:
+  type: object
+  properties:
+    uid:
+      type: string
+    displayText:
+      type: string
+      readOnly: true
+Trailers:
+  type: array
+  items:
+    type: integer
+    format: int64
+Occupancy:
+  type: object
+  properties:
+    range:
+      type: array
+      items:
+        type: integer
+        format: int32
+    passengerCount:
+      type: integer
+      format: int32
+RemainingRange:
+  type: number
+  format: float
+StateOfCharge:
+  type: number
+  format: float
+Timestamp:
+  type: string
+  format: date-time
+SubscriptionResponse:
+  type: object
+  properties:
+    subscriptionId:
+      type: string
+BasicChange:
+  type: object
+  required:
+  - modifier
+  properties:
+    modifier:
+      $ref: '#/ChangeType'
+ChangeType:
+  type: string
+  enum:
+  - CREATE
+  - UPDATE
+  - DELETE
+Result:
+  description: Describes the result of an operation. If the value must be interpreted as error is defined in the
+    property error (true).
+  type: object
+  properties:
+    value:
+      $ref: '#/ResultValue'
+    error:
+      type: boolean
+ResultValue:
+  description: The result of a single modification.
+  type: string
+  enum:
+  - OK
+  - FAILED
+  - UNAUTHORIZED
+  - INVALID_UID
+ModificationResultResponse:
+  description: The response containing the result indicating which modifications in a bulk request were successful.
+  type: object
+  properties:
+    containsErrors:
+      type: boolean
+      description: If set to false, the whole operation succeeded. Otherwise, at least one item in property
+        'results' has a result that describes an error.
+    results:
+      type: array
+      description: For each object to be modified, an entry in the results list indicates if the modification was
+        successfully applied.
+      items:
+        $ref: '#/ModificationResult'
+ModificationResult:
+  description: The "result" contains the result value of the modification to the object referenced by the given UID.
+  type: object
+  required:
+  - uid
+  - status
+  properties:
+    uid:
+      type: string
+      description: The UID of modified object.
+    result:
+      $ref: '#/Result'
+    description:
+      type: string
+      description: A description why a modification failed. Is only present in case of a failure.
+NotificationCategory:
+  type: string
+  enum:
+  - RADIO
+  - DISRUPTION
+  - VEHICLE_DISRUPTION
+  - EXTERNAL_DISRUPTION
+NotificationOrigin:
+  type: string
+  enum:
+  - CONTROL_CENTER
+  - VEHICLE
+BasicAssignmentBody:
+  type: object
+  properties:
+    user:
+      type: string
+      nullable: true

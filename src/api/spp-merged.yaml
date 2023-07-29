@@ -1,0 +1,2551 @@
+openapi: 3.0.3
+info:
+  title: Disruption Reports
+  description: Specifications of the API endpoints of disruption reports.
+  version: 1.0.0
+servers:
+  - url: /fl
+  - url: /
+tags:
+  - name: Disruption reports
+    description: >-
+      Notifications of category DISRUPTION. Reported by IVU, e.g. congestion
+      (on) line.
+  - name: Updates on disruption reports
+    description: >-
+      Control registration on updates for disruption reports. __Hint:__ At some
+      point we will use the same base path for every endpoint
+  - name: Events
+    description: "Relevant business events, e.g. incidents, that occurred during operation."
+  - name: Updates on events
+    description: >-
+      Control registration on updates for events. __Hint:__ At some point we
+      will use the same base path for every endpoint
+  - name: Communication
+    description: >-
+      Endpoints relating to communication, especially between dispatch manager
+      and driver of a vehicle.
+  - name: Net
+    description: >-
+      Specification of the API end points concerning the net, e.g. for net
+      points and links.
+  - name: Operations logs
+    description: >-
+      The operations logs contain entries for relevant business incidents that
+      occurred during operation.
+  - name: Radio messages
+    description: Notifications of category RADIO. Reported by individual vehicles.
+  - name: Updates on radio messages
+    description: >-
+      Control registration on updates for radio messages. __Hint:__ At some
+      point we will use the same base path for every endpoint
+  - name: Tenants
+    description: Endpoints relating to tenants of the system.
+  - name: Blocks
+    description: Information about blocks
+  - name: Updates on blocks
+    description: >-
+      Control registration on updates for blocks. __Hint:__ At some point we
+      will use the same base path for every endpoint
+  - name: Trips
+    description: Information about trips
+  - name: Vehicles
+    description: Information about vehicles
+  - name: Updates on vehicle states
+    description: >-
+      Control registration on updates for vehicle states. __Hint:__ At some
+      point we will use the same base path for every endpoint
+paths:
+  /gw/disruptionReports:
+    get:
+      tags:
+        - Disruption reports
+      description: Returns all currently available disruption reports.
+      operationId: retrieveDisruptionReports
+      parameters:
+        - $ref: ./common/parameters.yaml#/query/multipleTenants
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Required
+      responses:
+        "200":
+          description: >-
+            The data of all disruption reports matching the given query
+            parameters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisruptionReportsResponse"
+        "400":
+          $ref: ./common/responses.yaml#/MissingTenant
+        "403":
+          $ref: ./common/responses.yaml#/NotAuthorizedForTenants
+        "404":
+          $ref: ./common/responses.yaml#/UnknownTenant
+    delete:
+      tags:
+        - Disruption reports
+      description: Method to acknowledge i.e. delete disruption reports.
+      operationId: acknowledgeDisruptionReport
+      parameters:
+        - name: uid
+          in: query
+          description: UIDs of the disruption reports
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        "200":
+          description: >-
+            The acknowledgment was executed. The actual status of a single
+            acknowledgement must be checked in the response body. It is stated
+            there for each disruption report whether it was acknowledged or not.
+            If not, the reason for the failure is presented. If the disruption
+            report is not present at the server it will still return the
+            internal status of 200 since the goal of this API method was
+            achieved - the disruption report does not exist. Hence, the method
+            is idempotent. The number of results in the response is equal to the
+            number of ids being present as query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: ./common/schemas.yaml#/ModificationResultResponse
+              example:
+                containsErrors: true
+                results:
+                  - id: "1"
+                    status:
+                      value: OK
+                      error: false
+                  - id: "2"
+                    status:
+                      value: UNAUTHORIZED
+                      error: true
+                    description: Unauthorized for this tenant
+        "400":
+          $ref: ./common/responses.yaml#/MissingId
+        "401":
+          $ref: ./common/responses.yaml#/UserNotAuthenticated
+    patch:
+      tags:
+        - Disruption reports
+      description: Method to assign a disruption report to a user or unassign to no one.
+      operationId: assignDisruptionReport
+      parameters:
+        - name: uid
+          in: query
+          description: UIDs of the disruption reports
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+      requestBody:
+        description: >-
+          Information about the user to be assigned to. If the user property is
+          null, the user will be unassigned.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisruptionReportsAssignmentBody"
+            examples:
+              assign:
+                description: >-
+                  Send the user name to assign the disruption report(s) to
+                  her/him.
+                value:
+                  user: John Doe
+              unassign:
+                description: Send null as user to unassign the current one.
+                value:
+                  user: null
+      responses:
+        "200":
+          description: >-
+            The assignment was executed. The actual status of a single
+            assignment must be checked in the response body. It is stated there
+            for each disruption report whether it was assigned or not. If not,
+            the reason for the failure is presented. If the disruption report is
+            already assigned to the user, it will still return the internal
+            status of 200 since the goal of this API method was achieved - the
+            disruption report is assigned to the requested user. Hence, the
+            method is idempotent. The number of results in the response is equal
+            to the number of ids being present as query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: ./common/schemas.yaml#/ModificationResultResponse
+              example:
+                containsFailures: true
+                results:
+                  - id: "1"
+                    status:
+                      value: OK
+                      error: false
+                  - id: "2"
+                    status:
+                      value: UNAUTHORIZED
+                      error: true
+                    description: Unauthorized for this tenant
+        "400":
+          $ref: ./common/responses.yaml#/MissingId
+        "401":
+          $ref: ./common/responses.yaml#/UserNotAuthenticated
+  /disruptionReports/updates/subscriptions:
+    post:
+      tags:
+        - Updates on disruption reports
+      description: >-
+        Creates a subscription for updates. The response contains the ID to
+        identify the subscription by.
+      operationId: registerForDisruptionReportUpdates
+      parameters:
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Optional
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisruptionReportsSubscriptionRequestBody"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./common/schemas.yaml#/SubscriptionResponse
+        "400":
+          $ref: ./common/responses.yaml#/MissingRequestBody
+  "/disruptionReports/updates/subscriptions/{subscriptionId}":
+    delete:
+      tags:
+        - Updates on disruption reports
+      description: Removes the subscription with the given subscription ID.
+      operationId: deregisterForDisruptionReportUpdates
+      parameters:
+        - $ref: ./common/parameters.yaml#/path/subscriptionId
+      responses:
+        "200":
+          $ref: ./common/responses.yaml#/PlainOk
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+    put:
+      tags:
+        - Updates on disruption reports
+      description: >-
+        Changes an existing subscription to the parameters supplied with the
+        request body. This method can be used while already retrieving the
+        update stream of the subscription. The changes are applied immediately.
+      operationId: modifySubscriptionForDisruptionReports
+      parameters:
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Optional
+        - $ref: ./common/parameters.yaml#/path/subscriptionId
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisruptionReportsSubscriptionRequestBody"
+        required: true
+      responses:
+        "200":
+          $ref: ./common/responses.yaml#/PlainOk
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+  /disruptionReports/updates:
+    get:
+      tags:
+        - Updates on disruption reports
+      description: >-
+        Retrieves the update stream for a previously registered subscription
+        identified by its subscription ID.
+      operationId: retrieveUpdatesForDisruptionReports
+      parameters:
+        - $ref: ./common/parameters.yaml#/query/subscriptionId
+      responses:
+        "200":
+          description: OK
+          content:
+            text/event-stream:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DisruptionReportChange"
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+  /gw/events:
+    get:
+      tags:
+        - Events
+      description: >-
+        Returns all currently available events matching the query parameter
+        criteria.
+      operationId: retrieveEvents
+      parameters:
+        - name: vehicleUid
+          in: query
+          description: >-
+            The UID of the vehicle to return the currently associated events
+            for.
+          required: true
+          schema:
+            type: string
+        - name: timeFrameStart
+          in: query
+          description: >-
+            The beginning of the time frame to query events from. The time frame
+            condition is applied to the point in time an event was created /
+            began to exist. If this parameter is not provided by the client a
+            default value is used. Must be provided as ISO 8601-1 string.
+          required: false
+          schema:
+            type: string
+        - name: timeFrameEnd
+          in: query
+          description: >-
+            The end of the time frame to query events from. The time frame
+            condition is applied to the point in time an event was created /
+            began to exist. If this parameter is not provided by the client it
+            defaults to the current time (now). Must be provided as ISO 8601-1
+            string.
+          required: false
+          schema:
+            type: string
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Required
+      responses:
+        "200":
+          description: The data of all events matching the given query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventsResponse"
+        "400":
+          description: >-
+            Will be returned e.g. if the query parameter vehicleUid is missing
+            or not understood.
+          content:
+            text/plain:
+              schema:
+                type: string
+        "403":
+          $ref: ./common/responses.yaml#/NotAuthorizedForTenants
+        "404":
+          description: >-
+            Will be returned e.g. if the query parameter vehicleUid is
+            referencing an unknown vehicle.
+          content:
+            text/plain:
+              schema:
+                type: string
+  /events/updates/subscriptions:
+    post:
+      tags:
+        - Updates on events
+      description: >-
+        Creates a subscription for updates. The response contains the ID to
+        identify the subscription by.
+      operationId: registerForEventUpdates
+      parameters:
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Optional
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventsSubscriptionRequestBody"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./common/schemas.yaml#/SubscriptionResponse
+        "400":
+          $ref: ./common/responses.yaml#/MissingRequestBody
+  "/events/updates/subscriptions/{subscriptionId}":
+    delete:
+      tags:
+        - Updates on events
+      description: Removes the subscription with the given subscription ID.
+      operationId: deregisterForEventUpdates
+      parameters:
+        - $ref: ./common/parameters.yaml#/path/subscriptionId
+      responses:
+        "200":
+          $ref: ./common/responses.yaml#/PlainOk
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+    put:
+      tags:
+        - Updates on events
+      description: >-
+        Changes an existing subscription to the parameters supplied with the
+        request body. This method can be used while already retrieving the
+        update stream of the subscription. The changes are applied immediately.
+      operationId: modifySubscriptionForEvents
+      parameters:
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Optional
+        - $ref: ./common/parameters.yaml#/path/subscriptionId
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventsSubscriptionRequestBody"
+        required: true
+      responses:
+        "200":
+          $ref: ./common/responses.yaml#/PlainOk
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+  /events/updates:
+    get:
+      tags:
+        - Updates on events
+      description: >-
+        Retrieves the update stream for a previously registered subscription
+        identified by its subscription ID.
+      operationId: retrieveUpdatesForEvents
+      parameters:
+        - $ref: ./common/parameters.yaml#/query/subscriptionId
+      responses:
+        "200":
+          description: OK
+          content:
+            text/event-stream:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EventChange"
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+  /gw/instructionTemplates:
+    summary: >-
+      Returns the instruction templates (for predefined and / or user-defined
+      instructions) queried.
+    get:
+      tags:
+        - Communication
+      description: >-
+        Retrieves data related to the instruction templates queried. The method
+        shall be used with at least the tenant query parameter set (to a
+        non-empty array). Note that currently, the contents of the response like
+        the text property will be in the language which was used in the plan
+        data.
+      operationId: retrieveInstructionTemplates
+      parameters:
+        - $ref: ./common/parameters.yaml#/query/multipleTenants
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Required
+        - name: type
+          in: query
+          description: >-
+            Type of instruction (message). 'PREDEFINED' stands for coded
+            instructions predefined by the system, the templates for which
+            cannot be altered. 'USER_DEFINED' stands for custom text
+            instructions defined by a user, the templates for which can be
+            altered.
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/InstructionType"
+      responses:
+        "200":
+          description: >-
+            The data of all known instruction templates matching the given
+            parameters is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstructionTemplatesResponse"
+        "400":
+          description: >-
+            Will be returned if filtering parameter are missing as described
+            above.
+        "403":
+          $ref: ./common/responses.yaml#/NotAuthorizedForTenants
+        "404":
+          $ref: ./common/responses.yaml#/UnknownTenant
+    post:
+      tags:
+        - Communication
+      description: Creates a new user-defined instruction template.
+      operationId: createInstructionTemplate
+      requestBody:
+        required: true
+        description: All readonly properties will be ignored.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstructionTemplate"
+      responses:
+        "200":
+          description: >-
+            Will be returned if the template was created successfully. The
+            returned instruction template will contain the identification
+            property and thus the UID of the template.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstructionTemplate"
+        "400":
+          description: >-
+            Will be returned if the request body is missing or does not contain
+            a valid instruction template.
+        "403":
+          description: >-
+            __Upcoming after introduction of auth__ Will be returned if the
+            client requests to create an instruction template for a tenant that
+            it is not authorized for.
+        "404":
+          $ref: ./common/responses.yaml#/UnknownTenant
+        "500":
+          description: >-
+            Will be returned if, for any other reason than a malformed request,
+            there was a failure to save the instruction template to the database
+            on the server side.
+    put:
+      tags:
+        - Communication
+      description: Replaces a user-defined instruction template.
+      operationId: ReplacesInstructionTemplate
+      parameters:
+        - name: uid
+          in: path
+          description: >-
+            UID of the instruction template one wants to replace. Must contain
+            the UID as provided in an InstructionTemplateIdentification.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: All readonly properties will be ignored.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstructionTemplate"
+      responses:
+        "200":
+          description: Will be returned if the template was replaced successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstructionTemplate"
+        "400":
+          $ref: "#/components/responses/MalformedInstructionUID"
+        "403":
+          description: >-
+            __Upcoming after introduction of auth__ Will be returned if the
+            client requests to replace an instruction template for a tenant that
+            it is not authorized for.
+        "404":
+          description: >-
+            Will be returned if the referenced instruction template cannot be
+            found.
+    delete:
+      tags:
+        - Communication
+      description: >-
+        Deletes a single instruction template. The instruction template must be
+        of type USER_DEFINED. Templates of other types cannot be deleted.
+      operationId: deleteInstructionTemplate
+      parameters:
+        - name: uid
+          in: path
+          description: >-
+            UID of the instruction template to be deleted. Must contain the UID
+            as provided in an InstructionTemplateIdentification.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: >-
+            Will be returned if the referenced instruction template was
+            successfully deleted. This code will also be returned if the
+            instruction template has already been deleted before the delete
+            request being responded to or if it has never existed at all.
+        "400":
+          $ref: "#/components/responses/MalformedInstructionUID"
+        "403":
+          description: >-
+            Will be returned if the referenced instruction template is not of
+            type USER_DEFINED and therefore cannot be deleted. __Upcoming after
+            introduction of auth__ Will be returned as well if the client
+            requests to delete an instruction template belonging to a tenant he
+            is not authorized for.
+  /gw/instructions:
+    summary: Sends an instruction (predefined or user-defined instruction).
+    post:
+      tags:
+        - Communication
+      description: >-
+        Sends an instruction (predefined or user-defined instruction). The
+        request must at least contain the UID of a predefined instruction if the
+        request is of type 'PREDEFINED'. If the request is of type
+        'USER_DEFINED', then wanting to use a template and not changing the text
+        can be expressed by using the uid of the desired template. The other
+        cases of type 'USER_DEFINED' shall set the text property. The text will
+        not be internationalized and will be presented to every user as it was
+        given, independently of an individual user's language.
+      operationId: sendInstruction
+      requestBody:
+        description: All readonly properties will be ignored.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Instruction"
+      responses:
+        "200":
+          description: >-
+            Will be returned if the instruction was sent. The sent message with
+            all its data is present in the response body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Instruction"
+        "400":
+          description: >-
+            Will be returned if the request body is missing, does not contain
+            the required information or exceeds any limitations (e.g. number of
+            characters of the displayText). It may also be returned if the given
+            UID of an instruction template cannot be matched to an instruction
+            template in the database.
+        "403":
+          description: >-
+            __Upcoming after introduction of auth__ Will be returned if the
+            client tries to send an instruction for a tenant it is not
+            authorized for.
+        "404":
+          $ref: ./common/responses.yaml#/UnknownTenant
+        "500":
+          description: >-
+            Will be returned if, for any reason other than a malformed request,
+            the sending of the instruction failed. The client may try again
+            although the actual reason for the previous request's failure might
+            be something that cannot be influenced by the client. A fixed number
+            of retries would be advisable.
+  /gw/netPoints:
+    get:
+      tags:
+        - NetPoints
+      description: >-
+        Retrieves net points of the given tenant. Only one of the query
+        parameters 'tenant' or 'lineUid' may be used at the same time. They are
+        mutually exclusive.
+      operationId: retrieveNetPoints
+      parameters:
+        - $ref: ./common/parameters.yaml#/query/multipleTenants
+        - name: type
+          in: query
+          description: Type of net point.
+          schema:
+            type: array
+            items:
+              $ref: ./common/schemas.yaml#/NetPointType
+        - name: lineUid
+          in: query
+          description: >-
+            UIDs of lines. If this query parameter is used, only net points of
+            the desired types that are used on routes (both planned and those
+            dynamically created through dispatching) of the referenced lines
+            will be returned.
+          schema:
+            type: array
+            items:
+              type: string
+          example:
+            - IVU~66
+            - IVU~100
+      responses:
+        "200":
+          description: >-
+            The net points of a given type, or if no type is given all net
+            points.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetPointsResponse"
+        "400":
+          description: >-
+            Will be returned if the tenant and lineUid parameter are both
+            missing or both present, or if an unknown type is given.
+        "403":
+          $ref: ./common/responses.yaml#/NotAuthorizedForTenants
+        "404":
+          $ref: ./common/responses.yaml#/UnknownTenant
+  /gw/operationsLogs:
+    get:
+      tags:
+        - Operations logs
+      description: >-
+        Returns all the currently available operations log entries sorted by
+        logTimestamp in descending order.
+      operationId: retrieveOperationsLogs
+      parameters:
+        - $ref: ./common/parameters.yaml#/query/multipleTenants
+        - name: limit
+          in: query
+          required: true
+          description: Maximum number of operations log entries in the response
+          schema:
+            type: integer
+            format: int32
+          example: 100
+        - name: offset
+          in: query
+          description: >-
+            The offset of the entries. The entries are sorted by log timestamp.
+            E.g. an offset of 100 omits the first 100 most recent entries.
+          schema:
+            type: integer
+            format: int32
+        - name: lastEntry
+          in: query
+          description: >-
+            The id of the last entry that was already loaded by the client of
+            this API. The entries 'after' this entry will be returned. Hence, it
+            can be used to load a page 'after' an already loaded one.
+          schema:
+            type: string
+        - name: firstEntry
+          in: query
+          description: >-
+            The id of the first entry that was already loaded by the client of
+            this API. The entries 'before' this entry will be returned. Hence,
+            it can be used to load a page 'before' an already loaded one.
+          schema:
+            type: string
+        - name: timeFrameStart
+          in: query
+          description: >-
+            The beginning of the time frame to query operations logs from. The
+            time frame condition is applied to the point in time an operations
+            log entry was last modified at. If this parameter is not provided by
+            the client it defaults to the start of the current day. Must be
+            provided as ISO 8601-1 string.
+          schema:
+            type: string
+        - name: timeFrameEnd
+          in: query
+          description: >-
+            The end of the time frame to query operations logs from. The time
+            frame condition is applied to the point in time an operations log
+            entry was last modified at. If this parameter is not provided by the
+            client it defaults the current time (now). Must be provided as ISO
+            8601-1 string.
+          schema:
+            type: string
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Required
+      responses:
+        "200":
+          description: >-
+            An object holding the entries of the operations log entries and meta
+            data regarding the pagination. The result might not hold data for
+            all given tenants. If a tenant is unknown or the user is not
+            authorized for, the tenant will be omitted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationsLogPage"
+        "400":
+          description: >-
+            Will be returned if the tenant is missing or there is no positive
+            limit. Additionally, either an offset or firstEntry or a lastEntry
+            can be given. A combination of any of the three is illegal.
+        "403":
+          $ref: ./common/responses.yaml#/NotAuthorizedForTenants
+        "404":
+          description: >-
+            Will be returned iff tenants are unknown or the firstEntry/lastEntry
+            is unknown.
+    post:
+      tags:
+        - Operations logs
+      description: >-
+        Creates a new operations log entry. The entry must at least contain a
+        text, a tenant and the user. If the new entry shall be associated to a
+        vehicle, then the property vehicle->uid shall be set. The text will not
+        be internationalized. It will be presented to every user as it was
+        specified independently of the user's language.
+      operationId: createOperationsLogEntry
+      requestBody:
+        description: >-
+          All readonly properties will be ignored. Furthermore, all referenced
+          objects except for the VehicleIdentification (so it can be used to
+          provide the UID of a vehicle) will be ignored.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationsLogEntry"
+      responses:
+        "200":
+          description: >-
+            Will be returned if the entry was created. The new entry with all
+            its data is present in the response body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationsLogEntry"
+        "400":
+          description: >-
+            Will be returned if the request body is missing, does not contain
+            the required information or exceeds any limitations (e.g. number of
+            characters of the text).
+        "403":
+          description: >-
+            __Upcoming after introduction of auth__ Will be returned if the
+            client tries to create an entry for a tenant it is not authorized
+            for.
+  /gw/radioMessages:
+    get:
+      tags:
+        - Radio messages
+      description: Returns all currently available radio messages.
+      operationId: retrieveRadioMessages
+      parameters:
+        - $ref: ./common/parameters.yaml#/query/multipleTenants
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Required
+      responses:
+        "200":
+          description: The data of all radio messages matching the given query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RadioMessagesResponse"
+        "400":
+          $ref: ./common/responses.yaml#/MissingTenant
+        "403":
+          $ref: ./common/responses.yaml#/NotAuthorizedForTenants
+        "404":
+          $ref: ./common/responses.yaml#/UnknownTenant
+    delete:
+      tags:
+        - Radio messages
+      description: Method to acknowledge i.e. delete radio messages.
+      operationId: acknowledgeRadioMessages
+      parameters:
+        - name: uid
+          in: query
+          description: UIDs of the radio messages
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        "200":
+          description: >-
+            The acknowledgment was executed. The actual status of a single
+            acknowledgement must be checked in the response body. It is stated
+            there for each radio messages whether it was acknowledged or not. If
+            not, the reason for the failure is presented. If the radio message
+            is not present at the server it will still return the internal
+            status of 200 since the goal of this API method was achieved - the
+            radio message does not exist. Hence, the method is idempotent. The
+            number of results in the response is equal to the number of ids
+            being present as query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: ./common/schemas.yaml#/ModificationResultResponse
+              example:
+                containsErrors: true
+                results:
+                  - id: "1"
+                    status:
+                      value: OK
+                      error: false
+                  - id: "2"
+                    status:
+                      value: UNAUTHORIZED
+                      error: true
+                    description: Unauthorized for this tenant
+        "400":
+          $ref: ./common/responses.yaml#/MissingId
+        "401":
+          $ref: ./common/responses.yaml#/UserNotAuthenticated
+    patch:
+      tags:
+        - Radio messages
+      description: Method to assign a radio message to a user or unassign to no one.
+      operationId: assignRadioMessage
+      parameters:
+        - name: uid
+          in: query
+          description: UIDs of the radio messages
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+      requestBody:
+        description: >-
+          Information about the user to be assigned to. If the user property is
+          null, the user will be unassigned.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RadioMessagesAssignmentBody"
+            examples:
+              assign:
+                description: Send the user name to assign the radio message(s) to her/him.
+                value:
+                  user: John Doe
+              unassign:
+                description: Send null as user to unassign the current one.
+                value:
+                  user: null
+      responses:
+        "200":
+          description: >-
+            The assignment was executed. The actual status of a single
+            assignment must be checked in the response body. It is stated there
+            for each radio message whether it was assigned or not. If not, the
+            reason for the failure is presented. If the radio message is already
+            assigned to the user, it will still return the internal status of
+            200 since the goal of this API method was achieved - the radio
+            message is assigned to the requested user. Hence, the method is
+            idempotent. The number of results in the response is equal to the
+            number of ids being present as query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: ./common/schemas.yaml#/ModificationResultResponse
+              example:
+                containsFailures: true
+                results:
+                  - id: "1"
+                    status:
+                      value: OK
+                      error: false
+                  - id: "2"
+                    status:
+                      value: UNAUTHORIZED
+                      error: true
+                    description: Unauthorized for this tenant
+        "400":
+          $ref: ./common/responses.yaml#/MissingId
+        "401":
+          $ref: ./common/responses.yaml#/UserNotAuthenticated
+  /radioMessages/updates/subscriptions:
+    post:
+      tags:
+        - Updates on radio messages
+      description: >-
+        Creates a subscription for updates. The response contains the ID to
+        identify the subscription by.
+      operationId: registerForRadioMessageUpdates
+      parameters:
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Optional
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RadioMessagesSubscriptionRequestBody"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./common/schemas.yaml#/SubscriptionResponse
+        "400":
+          $ref: ./common/responses.yaml#/MissingRequestBody
+  "/radioMessages/updates/subscriptions/{subscriptionId}":
+    delete:
+      tags:
+        - Updates on radio messages
+      description: Removes the subscription with the given subscription ID.
+      operationId: deregisterForRadioMessageUpdates
+      parameters:
+        - $ref: ./common/parameters.yaml#/path/subscriptionId
+      responses:
+        "200":
+          $ref: ./common/responses.yaml#/PlainOk
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+    put:
+      tags:
+        - Updates on radio messages
+      description: >-
+        Changes an existing subscription to the parameters supplied with the
+        request body. This method can be used while already retrieving the
+        update stream of the subscription. The changes are applied immediately.
+      operationId: modifySubscriptionForRadioMessages
+      parameters:
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Optional
+        - $ref: ./common/parameters.yaml#/path/subscriptionId
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RadioMessagesSubscriptionRequestBody"
+        required: true
+      responses:
+        "200":
+          $ref: ./common/responses.yaml#/PlainOk
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+  /radioMessages/updates:
+    get:
+      tags:
+        - Updates on radio messages
+      description: >-
+        Retrieves the update stream for a previously registered subscription
+        identified by its subscription ID.
+      operationId: retrieveUpdatesForRadioMessages
+      parameters:
+        - $ref: ./common/parameters.yaml#/query/subscriptionId
+      responses:
+        "200":
+          description: OK
+          content:
+            text/event-stream:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RadioMessageChange"
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+  /gw/tenants:
+    get:
+      tags:
+        - Tenants
+      description: Retrieves a list of all tenants available in the system.
+      operationId: retrieveTenants
+      responses:
+        "200":
+          description: The list of all tenants.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantsResponse"
+  /gw/blocks/condensed:
+    summary: >-
+      Returns a condensed view of blocks. A condensed block contains an ordered
+      list of all trips a vehicle has to serve on a given operating day. The
+      trips contain the information about the first and last net point served as
+      well as the start and stop times.
+    get:
+      tags:
+        - Blocks
+      description: >-
+        Retrieves a condensed view of the blocks matching the given query
+        parameters. If a vehicle is registered but not currently serving a
+        block, it won't appear in the result. Thus, the result might come back
+        empty.
+      operationId: retrieveCondensedBlocks
+      parameters:
+        - name: vehicleUid
+          in: query
+          description: >-
+            The UIDs of the vehicles to return the currently associated blocks
+            for.
+          schema:
+            type: array
+            items:
+              type: string
+        - name: blockUid
+          in: query
+          description: The UIDs of the blocks that should be returned.
+          schema:
+            type: array
+            items:
+              type: string
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Required
+      responses:
+        "200":
+          description: >-
+            The condensed view of all known blocks matching the given parameters
+            is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CondensedBlocksResponse"
+        "400":
+          $ref: "#/components/responses/MissingQueryParameter"
+        "403":
+          $ref: ./common/responses.yaml#/NotAuthorizedForTenants
+  /blocks/condensed/updates/subscriptions:
+    post:
+      tags:
+        - Updates on blocks
+      description: >-
+        Creates a subscription for updates. The response contains the ID to
+        identify the subscription by.
+      operationId: registerForCondensedBlockUpdates
+      parameters:
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Optional
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlockSubscriptionRequestBody"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./common/schemas.yaml#/SubscriptionResponse
+        "400":
+          $ref: ./common/responses.yaml#/MissingRequestBody
+  "/blocks/condensed/updates/subscriptions/{subscriptionId}":
+    delete:
+      tags:
+        - Updates on blocks
+      description: Removes the subscription with the given subscription ID.
+      operationId: deregisterForCondensedBlockUpdates
+      parameters:
+        - $ref: ./common/parameters.yaml#/path/subscriptionId
+      responses:
+        "200":
+          $ref: ./common/responses.yaml#/PlainOk
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+    put:
+      tags:
+        - Updates on blocks
+      description: >-
+        Changes an existing subscription to the parameters supplied with the
+        request body. This method can be used while already retrieving the
+        update stream of the subscription. The changes are applied immediately.
+      operationId: modifySubscriptionForCondensedBlocks
+      parameters:
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Optional
+        - $ref: ./common/parameters.yaml#/path/subscriptionId
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlockSubscriptionRequestBody"
+        required: true
+      responses:
+        "200":
+          $ref: ./common/responses.yaml#/PlainOk
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+  /blocks/condensed/updates:
+    get:
+      tags:
+        - Updates on blocks
+      description: >-
+        Retrieves the update stream for a previously registered subscription
+        identified by its subscription ID.
+      operationId: retrieveUpdatesForCondensedBlocks
+      parameters:
+        - $ref: ./common/parameters.yaml#/query/subscriptionId
+      responses:
+        "200":
+          description: OK
+          content:
+            text/event-stream:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CondensedBlockChange"
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+  /gw/tripItineraries:
+    summary: >-
+      Returns data about trip itineraries. A trip itinerary describes the
+      geographic path through a region a vehicle must take while serving the
+      associated trip. Additionally, it contains time-based information about
+      the nodes of the itinerary i.e. when should or did or probably will the
+      vehicle arrive and depart from a specific net point. We distinguish
+      between "should" i.e. the planned time, "did" i.e. logged time and "will"
+      i.e. predicted timestamp.
+    get:
+      tags:
+        - Trips
+      description: >-
+        Retrieves data about the trip itineraries queried. At least one
+        parameter has to be given. The parameters vehicleUid and tripUid can be
+        combined, but when given a blockUid the other parameters are not
+        permitted. Conversely, if tripUid, vehicleUid or both are present, a
+        blockUid must not be present. Please also note that at most one blockUid
+        can be provided.
+      operationId: retrieveTripItineraries
+      parameters:
+        - name: vehicleUid
+          in: query
+          description: >-
+            The UIDs of the vehicles whose tripItineraries should be returned.
+            If a vehicle has no associated trip it will not be represented in
+            the result set. Only vehicles with registration state "OPERATIONAL"
+            will have a trip itinerary.
+          schema:
+            type: array
+            items:
+              type: string
+        - name: tripUid
+          in: query
+          description: The UIDs of the trips whose tripItineraries should be returned.
+          schema:
+            type: array
+            items:
+              type: string
+            example: IVU~-19945489~28
+        - name: blockUid
+          in: query
+          description: The UID of the block whose tripItineraries should be returned.
+          schema:
+            type: string
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Required
+      responses:
+        "200":
+          description: >-
+            The trip itineraries of all known trips matching the given
+            parameters are returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripItinerariesResponse"
+        "400":
+          description: Missing parameters or invalid combination of parameters.
+        "403":
+          $ref: ./common/responses.yaml#/NotAuthorizedForTenants
+  /tripItineraries/updates/subscriptions:
+    post:
+      tags:
+        - Updates on trip itineraries
+      description: >-
+        Creates a subscription for updates. The response contains the ID to
+        identify the subscription by.
+      operationId: registerForTripItinerariesUpdates
+      parameters:
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Optional
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripItinerariesSubscriptionRequestBody"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./common/schemas.yaml#/SubscriptionResponse
+        "400":
+          $ref: ./common/responses.yaml#/MissingRequestBody
+  "/tripItineraries/updates/subscriptions/{subscriptionId}":
+    delete:
+      tags:
+        - Updates on trip itineraries
+      description: Removes the subscription with the given subscription ID.
+      operationId: deregisterForTripItinerariesUpdates
+      parameters:
+        - $ref: ./common/parameters.yaml#/path/subscriptionId
+      responses:
+        "200":
+          $ref: ./common/responses.yaml#/PlainOk
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+    put:
+      tags:
+        - Updates on trip itineraries
+      description: >-
+        Changes an existing subscription to the parameters supplied with the
+        request body. This method can be used while already retrieving the
+        update stream of the subscription. The changes are applied immediately.
+      operationId: modifySubscriptionForTripItineraries
+      parameters:
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Optional
+        - $ref: ./common/parameters.yaml#/path/subscriptionId
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripItinerariesSubscriptionRequestBody"
+        required: true
+      responses:
+        "200":
+          $ref: ./common/responses.yaml#/PlainOk
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+  /tripItineraries/updates:
+    get:
+      tags:
+        - Updates on trip itineraries
+      description: >-
+        Retrieves the update stream for a previously registered subscription
+        identified by its subscription ID.
+      operationId: retrieveUpdatesForTripItineraries
+      parameters:
+        - $ref: ./common/parameters.yaml#/query/subscriptionId
+      responses:
+        "200":
+          description: OK
+          content:
+            text/event-stream:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TripItineraryChange"
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+  /gw/selectableVehicles:
+    summary: >-
+      Returns data about the vehicles that are known to the system. It contains
+      data about the vehicle itself and relevant operational details if it is
+      currently used.
+    get:
+      tags:
+        - Vehicles
+      description: Retrieves data about the vehicles queried.
+      operationId: retrieveSelectableVehicles
+      parameters:
+        - $ref: ./common/parameters.yaml#/query/multipleTenants
+        - name: registrationState
+          in: query
+          description: >-
+            Registration state of the vehicles. Only vehicles with the requested
+            states will be returned in the result. If no registrationState is
+            given, all vehicles will be returned independently of their
+            registration state.
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/VehicleRegistrationState"
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Required
+      responses:
+        "200":
+          description: >-
+            The data of all known vehicles matching the given parameters is
+            returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SelectableVehiclesResponse"
+        "400":
+          description: >-
+            Will be returned if the tenant is missing or the registration state
+            does not comply with the defined enum values.
+        "403":
+          $ref: ./common/responses.yaml#/NotAuthorizedForTenants
+        "404":
+          $ref: ./common/responses.yaml#/UnknownTenant
+  /gw/vehicleStates:
+    summary: Returns data related to state of the vehicles queried.
+    get:
+      tags:
+        - Vehicles
+      description: >-
+        Retrieves data related to states of the vehicles queried. The method
+        shall be used with at least one query parameter set (to a non-empty
+        array).
+      operationId: retrieveVehicleStates
+      parameters:
+        - $ref: ./common/parameters.yaml#/query/multipleTenants
+        - name: vehicleUid
+          in: query
+          description: >-
+            uid portion of VehicleIdentification. Only vehicle states matching
+            will be returned in the result.
+          schema:
+            type: array
+            items:
+              type: string
+          example:
+            - i~IVU~2619
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Required
+      responses:
+        "200":
+          description: >-
+            The data of all known vehicle states matching the given parameters
+            is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VehicleStatesResponse"
+        "400":
+          description: Will be returned if no filtering parameter at all is used.
+        "403":
+          $ref: ./common/responses.yaml#/NotAuthorizedForTenants
+        "404":
+          $ref: ./common/responses.yaml#/UnknownTenant
+  /vehicleStates/updates/subscriptions:
+    post:
+      tags:
+        - Updates on vehicle states
+      description: >-
+        Creates a subscription for updates. The response contains the ID to
+        identify the subscription by.
+      operationId: registerForVehicleStateUpdates
+      parameters:
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Optional
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleStatesSubscriptionRequestBody"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./common/schemas.yaml#/SubscriptionResponse
+        "400":
+          $ref: ./common/responses.yaml#/MissingRequestBody
+  "/vehicleStates/updates/subscriptions/{subscriptionId}":
+    delete:
+      tags:
+        - Updates on vehicle states
+      description: Removes the subscription with the given subscription ID.
+      operationId: deregisterForVehicleStateUpdates
+      parameters:
+        - $ref: ./common/parameters.yaml#/path/subscriptionId
+      responses:
+        "200":
+          $ref: ./common/responses.yaml#/PlainOk
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+    put:
+      tags:
+        - Updates on vehicle states
+      description: >-
+        Changes an existing subscription to the parameters supplied with the
+        request body. This method can be used while already retrieving the
+        update stream of the subscription. The changes are applied immediately.
+      operationId: modifySubscriptionForVehicleStates
+      parameters:
+        - $ref: ./common/parameters.yaml#/header/Accept-Language-Optional
+        - $ref: ./common/parameters.yaml#/path/subscriptionId
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleStatesSubscriptionRequestBody"
+        required: true
+      responses:
+        "200":
+          $ref: ./common/responses.yaml#/PlainOk
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+  /vehicleStates/updates:
+    get:
+      tags:
+        - Updates on vehicle states
+      description: >-
+        Retrieves the update stream for a previously registered subscription
+        identified by its subscription ID.
+      operationId: retrieveUpdatesForVehicleStates
+      parameters:
+        - $ref: ./common/parameters.yaml#/query/subscriptionId
+      responses:
+        "200":
+          description: OK
+          content:
+            text/event-stream:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VehicleStateChange"
+        "400":
+          $ref: ./common/responses.yaml#/MissingSubscriptionId
+        "404":
+          $ref: ./common/responses.yaml#/SubscriptionNotFound
+components:
+  schemas:
+    DisruptionReportsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DisruptionReport"
+    DisruptionReport:
+      type: object
+      properties:
+        uid:
+          type: string
+        tenant:
+          type: string
+        category:
+          $ref: ./common/schemas.yaml#/NotificationCategory
+        operatingDay:
+          type: string
+          format: date
+        type:
+          type: string
+        creationTime:
+          $ref: ./common/schemas.yaml#/Timestamp
+        origin:
+          $ref: ./common/schemas.yaml#/NotificationOrigin
+        text:
+          type: string
+        priority:
+          type: integer
+          format: int32
+        line:
+          $ref: ./common/schemas.yaml#/LineIdentification
+        position:
+          $ref: ./common/schemas.yaml#/Position
+        destination:
+          $ref: ./common/schemas.yaml#/Destination
+        user:
+          type: string
+        vehicle:
+          $ref: ./common/schemas.yaml#/VehicleIdentification
+        voiceRadioId:
+          type: string
+          description: voice radio ID of the vehicle
+        deviation:
+          $ref: ./common/schemas.yaml#/Deviation
+        driver:
+          $ref: ./common/schemas.yaml#/DriverIdentification
+        occupancy:
+          $ref: ./common/schemas.yaml#/Occupancy
+        trailers:
+          $ref: ./common/schemas.yaml#/Trailers
+        remainingRange:
+          $ref: ./common/schemas.yaml#/RemainingRange
+        stateOfCharge:
+          $ref: ./common/schemas.yaml#/StateOfCharge
+        block:
+          $ref: ./common/schemas.yaml#/BlockIdentification
+        trip:
+          $ref: ./common/schemas.yaml#/TripIdentification
+    DisruptionReportsAssignmentBody:
+      type: object
+      allOf:
+        - $ref: ./common/schemas.yaml#/BasicAssignmentBody
+    DisruptionReportsSubscriptionRequestBody:
+      type: object
+      properties:
+        filterKeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/DisruptionReportsFilterSpec"
+    DisruptionReportsFilterSpec:
+      type: object
+      properties:
+        tenant:
+          type: array
+          items:
+            type: string
+    DisruptionReportChange:
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          $ref: "#/components/schemas/DisruptionReport"
+      allOf:
+        - $ref: ./common/schemas.yaml#/BasicChange
+    EventsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+    Event:
+      type: object
+      required:
+        - uid
+        - creationTime
+        - text
+        - type
+      properties:
+        uid:
+          type: string
+        creationTime:
+          $ref: ./common/schemas.yaml#/Timestamp
+        text:
+          type: string
+        type:
+          type: string
+        affectedObjects:
+          description: the objects which are affected by this event
+          type: object
+          properties:
+            vehicles:
+              type: array
+              items:
+                $ref: ./common/schemas.yaml#/VehicleIdentification
+    EventsSubscriptionRequestBody:
+      type: object
+      properties:
+        filterKeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventsFilterSpec"
+          example:
+            - vehicleUid:
+                - i~STO~2308
+    EventsFilterSpec:
+      type: object
+      properties:
+        vehicleUid:
+          type: array
+          items:
+            type: string
+    EventChange:
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          $ref: "#/components/schemas/Event"
+      allOf:
+        - $ref: ./common/schemas.yaml#/BasicChange
+    InstructionType:
+      type: string
+      enum:
+        - PREDEFINED
+        - USER_DEFINED
+    InstructionTemplatesResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/InstructionTemplatesResponseData"
+    InstructionTemplatesResponseData:
+      type: object
+      properties:
+        predefinedTemplates:
+          type: array
+          items:
+            $ref: "#/components/schemas/InstructionTemplate"
+        userDefinedTemplates:
+          type: array
+          items:
+            $ref: "#/components/schemas/InstructionTemplate"
+    InstructionTemplate:
+      type: object
+      description: The identification property of an instruction template is read-only.
+      required:
+        - tenant
+        - text
+      properties:
+        tenant:
+          type: string
+        identification:
+          $ref: "#/components/schemas/InstructionTemplateIdentification"
+        text:
+          type: string
+        driverAcknowledgement:
+          type: boolean
+          description: >-
+            If present, indicates to the preset whether the addressed driver
+            shall acknowledge the receipt.
+    Instruction:
+      type: object
+      properties:
+        tenant:
+          type: string
+        template:
+          $ref: "#/components/schemas/InstructionTemplateIdentification"
+        text:
+          type: string
+          description: not applicable when type is 'PREDEFINED'
+        driverAcknowledgement:
+          type: boolean
+          description: >-
+            Indicates whether the addressed driver shall acknowledge the
+            receipt.
+        recipients:
+          $ref: "#/components/schemas/InstructionRecipients"
+    InstructionTemplateIdentification:
+      type: object
+      properties:
+        type:
+          $ref: "#/components/schemas/InstructionType"
+        uid:
+          type: string
+    InstructionRecipients:
+      type: object
+      properties:
+        vehicles:
+          type: array
+          items:
+            $ref: ./common/schemas.yaml#/VehicleIdentification
+    NetPointsResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/NetPointsResponseData"
+    NetPointsResponseData:
+      type: object
+      properties:
+        stopPoints:
+          type: array
+          items:
+            $ref: ./common/schemas.yaml#/NetPoint
+        depotPoints:
+          type: array
+          items:
+            $ref: ./common/schemas.yaml#/NetPoint
+        beacons:
+          type: array
+          items:
+            $ref: ./common/schemas.yaml#/NetPoint
+        linkPoints:
+          type: array
+          items:
+            $ref: ./common/schemas.yaml#/NetPoint
+    OperationsLogPage:
+      description: >-
+        A page of operations log entries including the data itself and
+        information about the pagination.
+      type: object
+      properties:
+        limit:
+          type: integer
+          format: int32
+        offset:
+          type: integer
+          format: int32
+        firstEntry:
+          type: integer
+          format: int64
+          description: The UID of the first entry in the data set being returned.
+        lastEntry:
+          type: integer
+          format: int64
+          description: The UID of the last entry in the data set being returned.
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperationsLogEntry"
+    OperationsLogEntry:
+      description: A single entry of the operations log.
+      type: object
+      required:
+        - tenant
+        - text
+        - user
+      properties:
+        uid:
+          type: string
+          description: Unique identifier for the entry.
+          readOnly: true
+        logTimestamp:
+          type: string
+          format: date-time
+          description: >-
+            The timestamp for logging this entry, i.e. storing it in the
+            operations log.
+          readOnly: true
+        eventTimestamp:
+          type: string
+          format: date-time
+          description: >-
+            The timestamp of the event. In case of a logged disruption report
+            logTimestamp will be after this timestamp since the disruption
+            report was created at the eventTimestamp and was moved to the
+            operations log after acknowledgment. The timestamp of the
+            acknowledgement matches the logTimestamp.
+          readOnly: true
+        category:
+          $ref: "#/components/schemas/OperationsLogCategory"
+        tenant:
+          type: string
+        text:
+          type: string
+          maxLength: 512
+          description: The text content of the operations log entry
+        operatingDay:
+          type: string
+          format: date
+          readOnly: true
+        block:
+          $ref: ./common/schemas.yaml#/BlockIdentification
+        line:
+          $ref: ./common/schemas.yaml#/LineIdentification
+        trip:
+          $ref: ./common/schemas.yaml#/TripIdentification
+        vehicle:
+          $ref: ./common/schemas.yaml#/VehicleIdentification
+        voiceRadioId:
+          type: string
+          description: voice radio ID of the vehicle
+          readOnly: true
+        deviation:
+          $ref: ./common/schemas.yaml#/Deviation
+        driver:
+          $ref: ./common/schemas.yaml#/DriverIdentification
+        occupancy:
+          $ref: ./common/schemas.yaml#/Occupancy
+        trailers:
+          $ref: ./common/schemas.yaml#/Trailers
+        remainingRange:
+          $ref: ./common/schemas.yaml#/RemainingRange
+        stateOfCharge:
+          $ref: ./common/schemas.yaml#/StateOfCharge
+        position:
+          $ref: ./common/schemas.yaml#/Position
+        destination:
+          $ref: ./common/schemas.yaml#/Destination
+        user:
+          type: string
+        comment:
+          type: string
+          description: Will be empty for the beginning.
+    OperationsLogCategory:
+      description: Is the enumeration for the 'H' column in the old client.
+      readOnly: true
+      type: string
+      enum:
+        - CALL
+        - DISPATCH_ACTION
+        - CALL_WITH_MANUAL_LOG_ENTRY
+        - MANUAL_LOG_ENTRY
+        - ACKNOWLEDGMENT
+        - MONITORING
+        - AUTO_ACKNOWLEDGMENT
+        - ENCODED_INSTRUCTION
+        - FAILED_ACTION
+        - TEXT_INSTRUCTION
+        - JOBMANAGEMENT
+        - INITIATED_BY_DRIVER
+        - EXTERNALLY_INITIATED
+        - EMPTY
+    RadioMessagesResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RadioMessage"
+    RadioMessage:
+      type: object
+      properties:
+        uid:
+          type: string
+        tenant:
+          type: string
+        category:
+          $ref: ./common/schemas.yaml#/NotificationCategory
+        operatingDay:
+          type: string
+          format: date
+        type:
+          $ref: "#/components/schemas/RadioMessageType"
+        codedMessageId:
+          type: integer
+          format: int64
+        creationTime:
+          $ref: ./common/schemas.yaml#/Timestamp
+        origin:
+          $ref: ./common/schemas.yaml#/NotificationOrigin
+        text:
+          type: string
+        priority:
+          type: integer
+          format: int32
+        line:
+          $ref: ./common/schemas.yaml#/LineIdentification
+        position:
+          $ref: ./common/schemas.yaml#/Position
+        destination:
+          $ref: ./common/schemas.yaml#/Destination
+        user:
+          type: string
+        vehicle:
+          $ref: ./common/schemas.yaml#/VehicleIdentification
+        voiceRadioId:
+          type: string
+          description: voice radio ID of the vehicle
+        deviation:
+          $ref: ./common/schemas.yaml#/Deviation
+        driver:
+          $ref: ./common/schemas.yaml#/DriverIdentification
+        occupancy:
+          $ref: ./common/schemas.yaml#/Occupancy
+        trailers:
+          $ref: ./common/schemas.yaml#/Trailers
+        remainingRange:
+          $ref: ./common/schemas.yaml#/RemainingRange
+        stateOfCharge:
+          $ref: ./common/schemas.yaml#/StateOfCharge
+        block:
+          $ref: ./common/schemas.yaml#/BlockIdentification
+        trip:
+          $ref: ./common/schemas.yaml#/TripIdentification
+    RadioMessageType:
+      type: string
+      enum:
+        - EMERGENCY_CALL
+        - INCIDENT_CALL
+        - PRIORITY_CALL
+        - CONTROL_CENTER_CALL
+        - CODED_MESSAGE
+        - CUSTOM_TEXT_MESSAGE
+    RadioMessagesAssignmentBody:
+      type: object
+      allOf:
+        - $ref: ./common/schemas.yaml#/BasicAssignmentBody
+    RadioMessagesSubscriptionRequestBody:
+      type: object
+      properties:
+        filterKeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/RadioMessagesFilterSpec"
+    RadioMessagesFilterSpec:
+      type: object
+      properties:
+        tenant:
+          type: array
+          items:
+            type: string
+    RadioMessageChange:
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          $ref: "#/components/schemas/RadioMessage"
+      allOf:
+        - $ref: ./common/schemas.yaml#/BasicChange
+    Tenant:
+      description: An object representing a tenant.
+      type: object
+      properties:
+        displayText:
+          type: string
+        uid:
+          type: string
+    TenantsResponse:
+      description: An object providing a list of all available tenants in the data field.
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tenant"
+    CondensedBlocksResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CondensedBlock"
+    CondensedBlock:
+      type: object
+      description: Condensed view of a block.
+      properties:
+        trips:
+          description: >-
+            List of all trips (represented in a condensed view) of the block in
+            the correct order, i.e. the first entry of the list is the first
+            trip of the block, the second entry is the second trip etc.
+          type: array
+          items:
+            $ref: "#/components/schemas/CondensedTrip"
+      allOf:
+        - $ref: "#/components/schemas/BasicBlock"
+    BasicBlock:
+      description: Common properties for every representation of a block.
+      type: object
+      properties:
+        identification:
+          $ref: ./common/schemas.yaml#/BlockIdentification
+        tenant:
+          type: string
+        operatingDay:
+          type: string
+          format: date
+        lastModified:
+          $ref: ./common/schemas.yaml#/Timestamp
+    Block:
+      type: object
+      description: Representation of a full block.
+      properties:
+        trips:
+          description: >-
+            List of all trips of the block in the correct order, i.e. the first
+            entry of the list is the first trip of the block, the second entry
+            is the second trip etc.
+          type: array
+          items:
+            $ref: "#/components/schemas/Trip"
+      allOf:
+        - $ref: "#/components/schemas/BasicBlock"
+    Trip:
+      type: object
+      description: Representation of a full trip.
+      properties:
+        block:
+          $ref: ./common/schemas.yaml#/BlockIdentification
+        line:
+          $ref: ./common/schemas.yaml#/LineIdentification
+        itinerary:
+          $ref: "#/components/schemas/TripItinerary"
+      allOf:
+        - $ref: "#/components/schemas/BasicTrip"
+    BasicTrip:
+      description: >-
+        Common properties for every representation of a trip. Of the two fields
+        plannedTimes and actualTimes only the planned times are always present.
+        If the trip will begin soon, the actual trip times will be present. The
+        actual trip times will start as a prediction of the times. After the
+        trip was started, the start timestamp will switch to a logged one. After
+        the trip was finished, the end timestamp will switch to a logged one.
+      required:
+        - identification
+        - plannedTimes
+      properties:
+        identification:
+          $ref: ./common/schemas.yaml#/TripIdentification
+        operatingDay:
+          type: string
+          format: date
+        destination:
+          type: string
+        plannedTimes:
+          $ref: "#/components/schemas/TripTimes"
+        actualTimes:
+          $ref: "#/components/schemas/ActualTripTimes"
+        cancelled:
+          description: True iff the whole trip is cancelled.
+          type: boolean
+        cancelledSegments:
+          description: >-
+            Contains a list of cancelled trip segments. If the property
+            cancelled is set to true, a single segment containing the whole
+            itinerary is given.
+          type: array
+          items:
+            $ref: "#/components/schemas/CancelledSegment"
+    CondensedTrip:
+      type: object
+      description: A condensed view of a trip.
+      required:
+        - firstTripItineraryNode
+        - lastTripItineraryNode
+      properties:
+        firstTripItineraryNode:
+          $ref: ./common/schemas.yaml#/TripItineraryNodeIdentification
+        lastTripItineraryNode:
+          $ref: ./common/schemas.yaml#/TripItineraryNodeIdentification
+      allOf:
+        - $ref: "#/components/schemas/BasicTrip"
+    BlockSubscriptionRequestBody:
+      type: object
+      properties:
+        filterKeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/BlockFilterSpec"
+          example:
+            - vehicleUid:
+                - i~STO~1
+                - i~STO~2308
+            - blockUid:
+                - IVU~1560~18
+    BlockFilterSpec:
+      type: object
+      properties:
+        vehicleUid:
+          type: array
+          items:
+            type: string
+        blockUid:
+          type: array
+          items:
+            type: string
+    CondensedBlockChange:
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          $ref: "#/components/schemas/CondensedBlock"
+      allOf:
+        - $ref: ./common/schemas.yaml#/BasicChange
+    TripItinerariesSubscriptionRequestBody:
+      type: object
+      properties:
+        filterKeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripItinerariesFilterSpec"
+          example:
+            - vehicleUid:
+                - i~STO~1
+                - i~STO~2308
+            - blockUid:
+                - IVU~1560~18
+            - tripUid:
+                - IVU~-19945489~28
+    TripItinerariesFilterSpec:
+      type: object
+      properties:
+        vehicleUid:
+          type: array
+          items:
+            type: string
+        blockUid:
+          type: array
+          items:
+            type: string
+        tripUid:
+          type: array
+          items:
+            type: string
+    TripItineraryChange:
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          $ref: "#/components/schemas/TripItinerary"
+      allOf:
+        - $ref: ./common/schemas.yaml#/BasicChange
+    TripItinerariesResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripItinerary"
+    TripItinerary:
+      type: object
+      description: >-
+        A trip itinerary consists of a trip's route (i.e. its geographical route
+        through the region) and trip specific information like the arrival and
+        departure times and information about passenger demands, dispatching and
+        so on. An itinerary mainly consists of its served links that are
+        consisting of a start and an end node. Those nodes are associated to net
+        points of the traffic network.
+      properties:
+        identification:
+          $ref: ./common/schemas.yaml#/TripIdentification
+        route:
+          $ref: ./common/schemas.yaml#/RouteIdentification
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripItineraryLink"
+    TripItineraryLink:
+      type: object
+      description: Link between the start and end node of the itinerary
+      properties:
+        length:
+          $ref: "#/components/schemas/LinkLength"
+        start:
+          $ref: "#/components/schemas/TripItineraryNode"
+        end:
+          $ref: "#/components/schemas/TripItineraryNode"
+    LinkLength:
+      type: integer
+      format: int32
+      description: Length of the link in meters
+    TripItineraryNode:
+      type: object
+      description: >-
+        This is a node of the itinerary. It describes a net point of our net.
+        This node does not have to be associated to a stop point. The type of
+        the underlying net point can be found in the 'identification' property.
+      properties:
+        identification:
+          $ref: ./common/schemas.yaml#/TripItineraryNodeIdentification
+        gpsPosition:
+          $ref: ./common/schemas.yaml#/GpsPosition
+        timeInfo:
+          $ref: "#/components/schemas/TimeInfo"
+        cancelled:
+          type: boolean
+        demandStop:
+          type: boolean
+        wasServed:
+          type: boolean
+          description: >-
+            Is true iff the arrival and departure time are logged i.e. the
+            vehicle actually arrived at (if it is not the very first node) and
+            departed (if it is not the very last node) from this node.
+        passengerDemand:
+          $ref: "#/components/schemas/PassengerDemand"
+        behaviorAtStop:
+          $ref: "#/components/schemas/BehaviorAtStop"
+    BehaviorAtStop:
+      type: string
+      enum:
+        - NORMAL
+        - PASS
+        - NO_ENTRY
+        - NO_EXIT
+        - SERVICE_STOP
+    PassengerDemand:
+      type: object
+      properties:
+        type:
+          $ref: "#/components/schemas/DemandType"
+        deboardingCount:
+          description: number of the de-boarding passengers
+          type: integer
+          format: int32
+        onboardingPassengers:
+          description: The passenger groups that will be on-boarding
+          type: array
+          items:
+            $ref: "#/components/schemas/PassengerGroup"
+      example:
+        type: BOTH
+        deboardingCount: 2
+        onboardingPassengers:
+          - name: Mrs. Smith
+            count: 2
+          - name: Mr. Doe
+            count: 5
+    PassengerGroup:
+      type: object
+      properties:
+        name:
+          type: string
+        count:
+          type: integer
+          format: int32
+    TimeInfo:
+      type: object
+      description: >-
+        The arrival and departure times of this itinerary's node. Only the pair
+        of the planned times is always present. If the trip will begin soon, the
+        actual time info will be present. The actual time info will start as a
+        prediction of the times. After serving the node, it will switch to a
+        logged timestamp.
+      properties:
+        planned:
+          $ref: "#/components/schemas/ArrivalDepartureTime"
+        actual:
+          $ref: "#/components/schemas/ActualArrivalDepartureTimes"
+      required:
+        - planned
+    ActualArrivalDepartureTimes:
+      type: object
+      properties:
+        predicted:
+          type: boolean
+        times:
+          $ref: "#/components/schemas/ArrivalDepartureTime"
+    ArrivalDepartureTime:
+      type: object
+      properties:
+        arrival:
+          $ref: ./common/schemas.yaml#/Timestamp
+        departure:
+          $ref: ./common/schemas.yaml#/Timestamp
+    DemandType:
+      type: string
+      enum:
+        - NO_DEMAND
+        - ONBOARDING
+        - DEBOARDING
+        - BOTH
+    TripTimes:
+      type: object
+      properties:
+        start:
+          $ref: ./common/schemas.yaml#/Timestamp
+        end:
+          $ref: ./common/schemas.yaml#/Timestamp
+    ActualTripTimes:
+      type: object
+      properties:
+        startPredicted:
+          type: boolean
+        endPredicted:
+          type: boolean
+      allOf:
+        - $ref: "#/components/schemas/TripTimes"
+    CancelledSegment:
+      description: >-
+        Represents a segment of cancelled trip stops, i.e. all stops between
+        (and including) start and end node are cancelled.
+      type: object
+      properties:
+        startNode:
+          $ref: "#/components/schemas/CancellationNode"
+        endNode:
+          $ref: "#/components/schemas/CancellationNode"
+    CancellationNode:
+      type: object
+      description: >-
+        Represents a cancelled node. Contains its identification (including
+        posInRoute) and the planned arrival and departure time.
+      properties:
+        identification:
+          $ref: ./common/schemas.yaml#/TripItineraryNodeIdentification
+        timeInfo:
+          $ref: "#/components/schemas/ArrivalDepartureTime"
+    VehicleStatesSubscriptionRequestBody:
+      type: object
+      properties:
+        filterKeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/VehicleStatesFilterSpec"
+          example:
+            - tenant:
+                - IVU
+            - vehicleUid:
+                - "i{STO}#{1}"
+                - "i{STO}#{2308}"
+    VehicleStatesFilterSpec:
+      type: object
+      properties:
+        tenant:
+          type: array
+          items:
+            type: string
+        vehicleUid:
+          type: array
+          items:
+            type: string
+    VehicleStateChange:
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          $ref: "#/components/schemas/VehicleState"
+      allOf:
+        - $ref: ./common/schemas.yaml#/BasicChange
+    DutyIdentification:
+      type: object
+      properties:
+        uid:
+          type: string
+        displayText:
+          type: string
+          readOnly: true
+    Speed:
+      type: integer
+      format: int32
+      description: speed in m per h (to allow for up to 3 positions after decimal point)
+    RemainingTrips:
+      type: object
+      properties:
+        predicted:
+          type: integer
+          format: int32
+          description: number of remaining trips for e-vehicles otherwise null
+        target:
+          type: integer
+          format: int32
+          description: number of trips till the end of the block; current trip excluded
+    GeoDirection:
+      type: object
+      properties:
+        angle:
+          type: integer
+          format: int32
+        displayText:
+          type: string
+    PositionState:
+      type: object
+      properties:
+        distance:
+          type: number
+          format: float
+          description: >-
+            distance in per mill (of link between fromNetPoint and toNetPoint)
+            measured from fromNetPoint
+        fromNetPoint:
+          $ref: ./common/schemas.yaml#/TripItineraryNodeIdentification
+        toNetPoint:
+          $ref: ./common/schemas.yaml#/TripItineraryNodeIdentification
+    VehicleTypeIdentification:
+      properties:
+        uid:
+          type: string
+        displayText:
+          type: string
+    VehicleRegistrationState:
+      type: string
+      enum:
+        - UNREGISTERED
+        - TECHNICAL
+        - OPERATIONAL
+        - EXTERNAL
+    SelectableVehiclesResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SelectableVehicle"
+    SelectableVehicle:
+      description: >-
+        The operational data is present iff the registration state is
+        OPERATIONAL or EXTERNAL. This does not necessarily hold for the sub
+        values. They could be non-existing even if the operational data itself
+        is present. For example, the driver data might not be present though the
+        vehicle is operationally registered.
+      type: object
+      properties:
+        tenant:
+          type: string
+        identification:
+          $ref: ./common/schemas.yaml#/VehicleIdentification
+        voiceRadioId:
+          type: string
+        registrationState:
+          $ref: "#/components/schemas/VehicleRegistrationState"
+        operational:
+          $ref: "#/components/schemas/VehicleOperationalData"
+        workingSet:
+          $ref: "#/components/schemas/WorkingSetIdentification"
+        type:
+          $ref: "#/components/schemas/VehicleTypeIdentification"
+      required:
+        - tenant
+        - identification
+        - registrationState
+      example:
+        tenant: STO
+        identification:
+          uid: STO-1
+          displayText: STO/1
+        voiceRadioId: "+49241470510"
+        registrationState: OPERATIONAL
+        workingSet:
+          displayText: Aachen Nord
+        type:
+          displayText: Citaro G
+        operational:
+          line:
+            displayText: STO/E
+          block:
+            displayText: "123"
+          trip:
+            numberInBlock: 1
+            displayText: STO/5/1
+          driver:
+            displayText: Max Mustermann
+    VehicleOperationalData:
+      type: object
+      properties:
+        line:
+          $ref: ./common/schemas.yaml#/LineIdentification
+        block:
+          $ref: ./common/schemas.yaml#/BlockIdentification
+        trip:
+          $ref: ./common/schemas.yaml#/TripIdentification
+        driver:
+          $ref: ./common/schemas.yaml#/DriverIdentification
+        duty:
+          $ref: "#/components/schemas/DutyIdentification"
+        route:
+          $ref: ./common/schemas.yaml#/RouteIdentification
+    WorkingSetIdentification:
+      type: object
+      properties:
+        uid:
+          type: string
+        displayText:
+          type: string
+    VehicleStatesResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/VehicleState"
+    VehicleState:
+      description: >-
+        The operational data is present iff the registration state is
+        OPERATIONAL or EXTERNAL. This does not necessarily hold for the sub
+        values. They could be non-existing even if the operational data itself
+        is present. For example, the driver data might not be present though the
+        vehicle is operationally registered. Note that the value of the property
+        registrationState of items in the response will never be UNREGISTERED as
+        unregistered vehicles simply do not have a vehicle state.
+      type: object
+      properties:
+        tenant:
+          type: string
+        identification:
+          $ref: ./common/schemas.yaml#/VehicleIdentification
+        voiceRadioId:
+          type: string
+        registrationState:
+          $ref: "#/components/schemas/VehicleRegistrationState"
+        operational:
+          $ref: "#/components/schemas/VehicleOperationalData"
+        workingSet:
+          $ref: "#/components/schemas/WorkingSetIdentification"
+        type:
+          $ref: "#/components/schemas/VehicleTypeIdentification"
+        lastUpdate:
+          $ref: ./common/schemas.yaml#/Timestamp
+        deviation:
+          $ref: ./common/schemas.yaml#/Deviation
+        gpsPosition:
+          $ref: ./common/schemas.yaml#/GpsPosition
+        geoDirection:
+          $ref: "#/components/schemas/GeoDirection"
+        positionState:
+          $ref: "#/components/schemas/PositionState"
+        position:
+          $ref: ./common/schemas.yaml#/Position
+        destination:
+          $ref: ./common/schemas.yaml#/Destination
+        occupancy:
+          $ref: ./common/schemas.yaml#/Occupancy
+        trailers:
+          $ref: ./common/schemas.yaml#/Trailers
+        remainingRange:
+          $ref: ./common/schemas.yaml#/RemainingRange
+        stateOfCharge:
+          $ref: ./common/schemas.yaml#/StateOfCharge
+        remainingTrips:
+          $ref: "#/components/schemas/RemainingTrips"
+        speed:
+          $ref: "#/components/schemas/Speed"
+      required:
+        - tenant
+        - identification
+        - registrationState
+        - lastUpdate
+  responses:
+    MalformedInstructionUID:
+      description: >-
+        Will be returned if the given UID of the instruction template was not
+        provided in the proper format or the service had any other issue while
+        processing it.
+    MissingQueryParameter:
+      description: Will be returned if no query parameter is present.

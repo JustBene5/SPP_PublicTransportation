@@ -1,0 +1,12 @@
+VehicleState.operational. 
+                            line
+                            block
+                            trip.uid
+                            driver
+                            duty
+                            route
+
+
+delete Filter?
+
+eigene Methoden in globals.ts in Autofill von VSCode?

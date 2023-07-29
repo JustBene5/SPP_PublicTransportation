@@ -1,0 +1,50 @@
+header:
+  Accept-Language-Required:
+    name: Accept-Language
+    in: header
+    schema:
+      type: string
+    description: The language and region identifier of the requested language in IETF BCP 47 format. If none is
+      present, the default language will be used.
+    required: true
+    example: 'en'
+  Accept-Language-Optional:
+    name: Accept-Language
+    in: header
+    schema:
+      type: string
+    description: The language and region identifier of the requested language in IETF BCP 47 format.
+    required: false
+    example: 'en'
+query:
+  multipleTenants:
+    name: tenant
+    in: query
+    description: IDs of the tenants (short name)
+    schema:
+      type: array
+      items:
+        type: string
+    example: [ 'IVU', 'STO' ]
+  singleTenant:
+    name: tenant
+    in: query
+    description: ID of a single tenant (short name)
+    schema:
+      type: string
+    example: 'IVU'
+  subscriptionId:
+    name: subscriptionId
+    in: query
+    description: ID of the subscription
+    required: true
+    schema:
+      type: string
+path:
+  subscriptionId:
+    name: subscriptionId
+    in: path
+    description: ID of the subscription
+    required: true
+    schema:
+      type: string

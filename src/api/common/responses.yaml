@@ -1,0 +1,44 @@
+PlainOk:
+  description: OK
+  content:
+    text/plain:
+      schema:
+        type: string
+UnknownTenant:
+  description: Will be returned if tenant is unknown.
+NotAuthorizedForTenants:
+  description: __Upcoming after introduction of auth__ Will be returned if the client only requests tenants that
+    it is not authorized for.
+SubscriptionNotFound:
+  description: Will be returned if the subscription with the given subscription ID cannot be found.
+  content:
+    text/plain:
+      schema:
+        type: string
+MissingSubscriptionId:
+  description: Will be returned if no subscription ID is given.
+  content:
+    text/plain:
+      schema:
+        type: string
+MissingRequestBody:
+  description: Will be returned if no request body is given.
+  content:
+    text/plain:
+      schema:
+        type: string
+MissingTenant:
+  description: Will be returned if the tenant query parameter is missing.
+MissingId:
+  description: if no id is given
+  content:
+    '*/*':
+      schema:
+        type: string
+UserNotAuthenticated:
+  description: __Upcoming after introduction of auth__
+    If the user is not authenticated.
+  content:
+    '*/*':
+      schema:
+        type: string
